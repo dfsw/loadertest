@@ -387,10 +387,8 @@
                 // Apply compatibility to all upgrades
                 this.applyCompatibilityToAllUpgrades();
                 
-                // Refresh store if available
-                if (Game.RefreshStore) {
-                    Game.RefreshStore();
-                }
+                // Don't call Game.RefreshStore here - let CCSE handle it naturally
+                // This prevents potential loops with our protection system
                 
                 console.log('CCSE Bridge: CCSE post-load processing complete');
                 
@@ -534,8 +532,14 @@
                             }
                             
                             if (needsRestore && Game.JNE.restoreModSettings) {
-                                Game.JNE.restoreModSettings();
-                                console.log('CCSE Bridge: Restored mod settings after Game.RebuildUpgrades()');
+                                // Add loop detection - only restore if we haven't restored recently
+                                if (!Game.JNE._lastRestoreTime || (Date.now() - Game.JNE._lastRestoreTime) > 1000) {
+                                    Game.JNE._lastRestoreTime = Date.now();
+                                    Game.JNE.restoreModSettings();
+                                    console.log('CCSE Bridge: Restored mod settings after Game.RebuildUpgrades()');
+                                } else {
+                                    console.log('CCSE Bridge: Skipping restoration (restored recently)');
+                                }
                             }
                         }, 100); // Longer delay to avoid save conflicts
                     }
@@ -607,8 +611,14 @@
                                 }
                                 
                                 if (needsRestore && Game.JNE.restoreModSettings) {
-                                    Game.JNE.restoreModSettings();
-                                    console.log('CCSE Bridge: Restored mod settings after', funcPath, '()');
+                                    // Add loop detection - only restore if we haven't restored recently
+                                    if (!Game.JNE._lastRestoreTime || (Date.now() - Game.JNE._lastRestoreTime) > 1000) {
+                                        Game.JNE._lastRestoreTime = Date.now();
+                                        Game.JNE.restoreModSettings();
+                                        console.log('CCSE Bridge: Restored mod settings after', funcPath, '()');
+                                    } else {
+                                        console.log('CCSE Bridge: Skipping restoration (restored recently)');
+                                    }
                                 }
                             }
                         }, 100); // Longer delay to avoid save conflicts
