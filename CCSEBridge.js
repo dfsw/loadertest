@@ -505,14 +505,19 @@
                     // Call the original function
                     var result = originalRebuildUpgrades.apply(this, arguments);
                     
-                    // Restore mod settings after CCSE rebuilds upgrades
+                    // Check if restoration is needed before calling it
                     setTimeout(function() {
                         // Check if our mod is loaded and has settings to restore
                         if (typeof Game !== 'undefined' && Game.JNE && Game.JNE.modName === 'Just Natural Expansion') {
-                            // Restore mod settings if they exist
-                            if (Game.JNE.restoreModSettings) {
-                                Game.JNE.restoreModSettings();
-                                console.log('CCSE Bridge: Restored mod settings after Game.RebuildUpgrades()');
+                            // Only restore if there's a mismatch
+                            if (Game.JNE.modSettings && Game.JNE.modSettings.shadowAchievements !== undefined) {
+                                if (Game.JNE.shadowAchievementMode() !== Game.JNE.modSettings.shadowAchievements) {
+                                    console.log('CCSE Bridge: Detected mismatch after Game.RebuildUpgrades(), restoring...');
+                                    if (Game.JNE.restoreModSettings) {
+                                        Game.JNE.restoreModSettings();
+                                        console.log('CCSE Bridge: Restored mod settings after Game.RebuildUpgrades()');
+                                    }
+                                }
                             }
                         }
                     }, 0);
@@ -556,11 +561,19 @@
                         // Call the original function
                         var result = originalFunc.apply(this, arguments);
                         
-                        // Schedule restoration of mod state
+                        // Check if restoration is needed before calling it
                         setTimeout(function() {
-                            if (typeof Game !== 'undefined' && Game.JNE && Game.JNE.restoreModSettings) {
-                                Game.JNE.restoreModSettings();
-                                console.log('CCSE Bridge: Restored mod settings after', funcPath, '()');
+                            if (typeof Game !== 'undefined' && Game.JNE && Game.JNE.modName === 'Just Natural Expansion') {
+                                // Only restore if there's a mismatch
+                                if (Game.JNE.modSettings && Game.JNE.modSettings.shadowAchievements !== undefined) {
+                                    if (Game.JNE.shadowAchievementMode() !== Game.JNE.modSettings.shadowAchievements) {
+                                        console.log('CCSE Bridge: Detected mismatch after', funcPath, '(), restoring...');
+                                        if (Game.JNE.restoreModSettings) {
+                                            Game.JNE.restoreModSettings();
+                                            console.log('CCSE Bridge: Restored mod settings after', funcPath, '()');
+                                        }
+                                    }
+                                }
                             }
                         }, 0);
                         
@@ -600,7 +613,7 @@
                     console.log('CCSE Bridge: Auto-restoring mod settings due to detected mismatch');
                     Game.JNE.restoreModSettings();
                 }
-            }, 5000); // Check every 5 seconds
+            }, 10000); // Check every 10 seconds
             
             console.log('CCSE Bridge: Variable monitoring installed');
         },
