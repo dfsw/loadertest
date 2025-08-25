@@ -496,37 +496,55 @@
             }
         },
         
-        // Protect against Game.RebuildUpgrades resetting mod variables
+        // Light protection against Game.RebuildUpgrades resetting mod variables
         protectRebuildUpgrades: function() {
             if (typeof Game !== 'undefined' && Game.RebuildUpgrades && !Game.RebuildUpgrades._CCSEBridgeProtected) {
                 var originalRebuildUpgrades = Game.RebuildUpgrades;
                 
                 Game.RebuildUpgrades = function() {
+                    // Save current mod state BEFORE CCSE function runs
+                    var modStateSnapshot = null;
+                    if (typeof Game !== 'undefined' && Game.JNE && Game.JNE.modName === 'Just Natural Expansion') {
+                        modStateSnapshot = {
+                            shadowAchievementMode: Game.JNE.shadowAchievementMode(),
+                            enableCookieUpgrades: Game.JNE.enableCookieUpgrades(),
+                            enableBuildingUpgrades: Game.JNE.enableBuildingUpgrades(),
+                            enableKittenUpgrades: Game.JNE.enableKittenUpgrades()
+                        };
+                    }
+                    
                     // Call the original function
                     var result = originalRebuildUpgrades.apply(this, arguments);
                     
-                    // Check if restoration is needed before calling it
-                    setTimeout(function() {
-                        // Check if our mod is loaded and has settings to restore
-                        if (typeof Game !== 'undefined' && Game.JNE && Game.JNE.modName === 'Just Natural Expansion') {
-                            // Only restore if there's a mismatch
-                            if (Game.JNE.modSettings && Game.JNE.modSettings.shadowAchievements !== undefined) {
-                                if (Game.JNE.shadowAchievementMode() !== Game.JNE.modSettings.shadowAchievements) {
-                                    console.log('CCSE Bridge: Detected mismatch after Game.RebuildUpgrades(), restoring...');
-                                    if (Game.JNE.restoreModSettings) {
-                                        Game.JNE.restoreModSettings();
-                                        console.log('CCSE Bridge: Restored mod settings after Game.RebuildUpgrades()');
-                                    }
-                                }
+                    // Restore state AFTER CCSE function completes with longer delay
+                    if (modStateSnapshot) {
+                        setTimeout(function() {
+                            // Only restore if state actually changed
+                            var currentState = {
+                                shadowAchievementMode: Game.JNE.shadowAchievementMode(),
+                                enableCookieUpgrades: Game.JNE.enableCookieUpgrades(),
+                                enableBuildingUpgrades: Game.JNE.enableBuildingUpgrades(),
+                                enableKittenUpgrades: Game.JNE.enableKittenUpgrades()
+                            };
+                            
+                            var needsRestore = false;
+                            if (currentState.shadowAchievementMode !== modStateSnapshot.shadowAchievementMode) {
+                                console.log('CCSE Bridge: Detected shadowAchievementMode change, restoring...');
+                                needsRestore = true;
                             }
-                        }
-                    }, 0);
+                            
+                            if (needsRestore && Game.JNE.restoreModSettings) {
+                                Game.JNE.restoreModSettings();
+                                console.log('CCSE Bridge: Restored mod settings after Game.RebuildUpgrades()');
+                            }
+                        }, 100); // Longer delay to avoid save conflicts
+                    }
                     
                     return result;
                 };
                 
                 Game.RebuildUpgrades._CCSEBridgeProtected = true;
-                console.log('CCSE Bridge: Game.RebuildUpgrades protected against mod variable reset');
+                console.log('CCSE Bridge: Game.RebuildUpgrades protected with light protection');
             }
         },
         
@@ -561,21 +579,39 @@
                         // Call the original function
                         var result = originalFunc.apply(this, arguments);
                         
-                        // Check if restoration is needed before calling it
+                        // Light protection: save state before, restore after if changed
+                        var modStateSnapshot = null;
+                        if (typeof Game !== 'undefined' && Game.JNE && Game.JNE.modName === 'Just Natural Expansion') {
+                            modStateSnapshot = {
+                                shadowAchievementMode: Game.JNE.shadowAchievementMode(),
+                                enableCookieUpgrades: Game.JNE.enableCookieUpgrades(),
+                                enableBuildingUpgrades: Game.JNE.enableBuildingUpgrades(),
+                                enableKittenUpgrades: Game.JNE.enableKittenUpgrades()
+                            };
+                        }
+                        
                         setTimeout(function() {
-                            if (typeof Game !== 'undefined' && Game.JNE && Game.JNE.modName === 'Just Natural Expansion') {
-                                // Only restore if there's a mismatch
-                                if (Game.JNE.modSettings && Game.JNE.modSettings.shadowAchievements !== undefined) {
-                                    if (Game.JNE.shadowAchievementMode() !== Game.JNE.modSettings.shadowAchievements) {
-                                        console.log('CCSE Bridge: Detected mismatch after', funcPath, '(), restoring...');
-                                        if (Game.JNE.restoreModSettings) {
-                                            Game.JNE.restoreModSettings();
-                                            console.log('CCSE Bridge: Restored mod settings after', funcPath, '()');
-                                        }
-                                    }
+                            if (modStateSnapshot) {
+                                // Only restore if state actually changed
+                                var currentState = {
+                                    shadowAchievementMode: Game.JNE.shadowAchievementMode(),
+                                    enableCookieUpgrades: Game.JNE.enableCookieUpgrades(),
+                                    enableBuildingUpgrades: Game.JNE.enableBuildingUpgrades(),
+                                    enableKittenUpgrades: Game.JNE.enableKittenUpgrades()
+                                };
+                                
+                                var needsRestore = false;
+                                if (currentState.shadowAchievementMode !== modStateSnapshot.shadowAchievementMode) {
+                                    console.log('CCSE Bridge: Detected shadowAchievementMode change after', funcPath, '(), restoring...');
+                                    needsRestore = true;
+                                }
+                                
+                                if (needsRestore && Game.JNE.restoreModSettings) {
+                                    Game.JNE.restoreModSettings();
+                                    console.log('CCSE Bridge: Restored mod settings after', funcPath, '()');
                                 }
                             }
-                        }, 0);
+                        }, 100); // Longer delay to avoid save conflicts
                         
                         return result;
                     };
@@ -586,36 +622,13 @@
             });
         },
         
-        // Monitor mod variables for unexpected changes and restore them
+        // Light variable monitoring - only during specific events, not continuous
         installVariableMonitoring: function() {
             if (typeof Game === 'undefined' || !Game.JNE || !Game.JNE.modName) {
                 return; // Mod not loaded yet
             }
             
-            // Set up periodic checks to detect if mod variables got reset
-            var checkInterval = setInterval(function() {
-                if (typeof Game === 'undefined' || !Game.JNE) {
-                    clearInterval(checkInterval);
-                    return;
-                }
-                
-                // Check if mod variables match their expected values from modSettings
-                var needsRestore = false;
-                
-                if (Game.JNE.modSettings && Game.JNE.modSettings.shadowAchievements !== undefined) {
-                    if (Game.JNE.shadowAchievementMode() !== Game.JNE.modSettings.shadowAchievements) {
-                        console.warn('CCSE Bridge: Detected shadowAchievementMode mismatch, will restore');
-                        needsRestore = true;
-                    }
-                }
-                
-                if (needsRestore && Game.JNE.restoreModSettings) {
-                    console.log('CCSE Bridge: Auto-restoring mod settings due to detected mismatch');
-                    Game.JNE.restoreModSettings();
-                }
-            }, 10000); // Check every 10 seconds
-            
-            console.log('CCSE Bridge: Variable monitoring installed');
+            console.log('CCSE Bridge: Light variable monitoring installed (event-based only)');
         },
         
         // Get bridge status information
