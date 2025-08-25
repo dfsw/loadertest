@@ -590,7 +590,7 @@
                 var needsRestore = false;
                 
                 if (Game.JNE.modSettings && Game.JNE.modSettings.shadowAchievements !== undefined) {
-                    if (Game.JNE.shadowAchievementMode !== Game.JNE.modSettings.shadowAchievements) {
+                    if (Game.JNE.shadowAchievementMode() !== Game.JNE.modSettings.shadowAchievements) {
                         console.warn('CCSE Bridge: Detected shadowAchievementMode mismatch, will restore');
                         needsRestore = true;
                     }
